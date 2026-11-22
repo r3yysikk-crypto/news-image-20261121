@@ -1,45 +1,50 @@
-"""news-image-20261121: write one image summing up 21 November 2026's world news.
+"""Entry for make.fun news-image-20261121.
 
-The image is bundled in this repo as entry.png (1024x1024 PNG, <1 MiB):
-a newspaper front page for Saturday 21 November 2026 — Trump, Xi and Putin
-meet at a trilateral summit in Shenzhen; a Russian missile lands in Poland
-during strikes on Ukraine; tankers burn in the Strait of Hormuz; AI stocks
-sell off and markets fall into correction; COP31 deadlocks over fossil
-fuels; the ICJ rules on Myanmar and the Rohingya.
-This program copies it byte-for-byte to /output/entry.png, then verifies
-the copy matches the source. No network, no randomness: two runs write
-identical bytes.
+Saturday 21 November 2026, summed up in one picture: a newspaper front
+page with six panels. Trump, Xi and Putin meet in Shenzhen; a Russian
+missile lands in Poland; tankers burn off Hormuz; AI shares sell off and
+the markets slide into correction; the COP31 talks stall on fossil fuels;
+the International Court of Justice rules on Myanmar.
+
+The picture itself lives in this repository as entry.png. Running this
+program places an exact copy at /output/entry.png and checks the copy
+byte for byte. It needs no network and no luck: run it twice and the two
+outputs are identical.
 """
 
-import hashlib
-import os
-import shutil
-import sys
+import hashlib, sys
+from pathlib import Path
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-
-
-def sha256(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+PICTURE = Path(__file__).resolve().parent / "entry.png"
+DESTINATION = Path("/output/entry.png")
+BLOCK = 1 << 16
 
 
-def main():
-    src = os.path.join(HERE, "entry.png")
-    dst = "/output/entry.png"
-    if not os.path.isfile(src):
-        print("entry.png not found next to main.py", file=sys.stderr)
-        return 1
-    os.makedirs("/output", exist_ok=True)
-    shutil.copyfile(src, dst)
-    if sha256(src) != sha256(dst):
-        print("copy mismatch: output differs from source", file=sys.stderr)
-        return 1
-    return 0
+def fingerprint(path):
+    """SHA-256 of a file, read in blocks."""
+    hasher = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            piece = handle.read(BLOCK)
+            if not piece:
+                break
+            hasher.update(piece)
+    return hasher.hexdigest()
+
+
+def place_picture():
+    """Copy entry.png to /output/entry.png and confirm the copy."""
+    if not PICTURE.is_file():
+        print("entry.png is missing next to this program", file=sys.stderr)
+        return False
+    DESTINATION.parent.mkdir(parents=True, exist_ok=True)
+    DESTINATION.write_bytes(PICTURE.read_bytes())
+    if fingerprint(PICTURE) != fingerprint(DESTINATION):
+        print("the copy does not match the original", file=sys.stderr)
+        return False
+    print(f"wrote {DESTINATION} ({DESTINATION.stat().st_size} bytes)")
+    return True
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(0 if place_picture() else 1)
